@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redis
+    environment:
+      SPRING_DATA_REDIS_HOST: redis
+
+  # Mock backend services for testing
+  mock-user-service:
+    image: mockserver/mockserver:latest
+    ports:
+      - "8081:1080"
+    environment:
+      MOCKSERVER_INITIALIZATION_JSON_PATH: /config/user-service-expectations.json
+
+  mock-order-service:
+    image: mockserver/mockserver:latest
+    ports:
+      - "8082:1080"
+
+  mock-payment-service:
+    image: mockserver/mockserver:latest
+    ports:
+      - "8083:1080"
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
